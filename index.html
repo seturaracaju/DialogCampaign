@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="https://pub-872633efa2d545638be12ea86363c2ca.r2.dev/WhatsApp%20Image%202025-11-02%20at%2022.39.57-Photoroom.png" />
+    <link rel="apple-touch-icon" href="https://pub-872633efa2d545638be12ea86363c2ca.r2.dev/WhatsApp%20Image%202025-11-02%20at%2022.39.57-Photoroom.png" />
+    <title>Dialog Campaign Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      /* Custom scrollbar for webkit browsers */
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #191919;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #D99B54;
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #c78f4a;
+      }
+      /* Custom date picker indicator for webkit browsers */
+      input[type="date"]::-webkit-calendar-picker-indicator {
+        filter: invert(1) brightness(0.7) sepia(1) saturate(5) hue-rotate(330deg);
+        cursor: pointer;
+      }
+      /* Toast Animation */
+      @keyframes fadeInOut {
+        0% { opacity: 0; transform: translateY(20px); }
+        10% { opacity: 1; transform: translateY(0); }
+        90% { opacity: 1; transform: translateY(0); }
+        100% { opacity: 0; transform: translateY(20px); }
+      }
+      .toast-animation {
+        animation: fadeInOut 4s ease-in-out forwards;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "@aws-sdk/client-s3": "https://esm.sh/@aws-sdk/client-s3@3.583.0",
+    "@aws-sdk/lib-storage": "https://esm.sh/@aws-sdk/lib-storage@3.583.0",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.43.4",
+    "@google/genai": "https://esm.sh/@google/genai",
+    "xlsx": "https://esm.sh/xlsx@0.18.5"
+  }
+}
+</script>
+</head>
+  <body class="bg-[#0A0A0A]">
+    <div id="root"></div>
+  </body>
+</html>

@@ -1,0 +1,5 @@
+{
+  "name": "Dialog Campaign Manager",
+  "description": "A simple and intuitive web application to serve as a control panel for an AI campaign system. It allows the user to manage leads and schedule multimedia campaigns autonomously.",
+  "requestFramePermissions": []
+}
