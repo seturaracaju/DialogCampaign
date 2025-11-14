@@ -9,7 +9,7 @@ export interface Lead {
   created_at?: string;
   nome: string | null;
   email: string | null;
-  status: 'active' | 'inactive' | 'Novo Lead' | 'Atendimento Humano';
+  status: 'active' | 'inactive' | 'Novo Lead' | 'Atendimento Humano' | 'Em Atendimento' | 'Campanha MKT' | 'App Download';
   tag_plano_de_interesse: string | null;
   ultima_mensagem: string | null;
   mensagem: string | null;
@@ -19,7 +19,6 @@ export interface Lead {
   atuacao: string | null;
   telefone: string | null;
   data_origem: string | null;
-  unidade_origem: string | null;
 }
 
 export interface Campaign {

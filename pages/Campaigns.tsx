@@ -10,7 +10,7 @@ import { ai } from '../lib/gemini';
 import { useSync } from '../App';
 import Modal from '../components/Modal';
 import DeleteConfirmModal from '../components/DeleteConfirmModal';
-import { InputField, TextAreaField, DatalistInputField } from '../components/FormControls';
+import { InputField, TextAreaField, DatalistInputField, CustomSelect } from '../components/FormControls';
 import ViewCampaignModal from '../components/ViewCampaignModal';
 
 
@@ -293,7 +293,14 @@ const Campaigns = () => {
             const leadTags = leadTagsRes.data?.map(t => t.tag_plano_de_interesse).filter(Boolean) as string[] || [];
             
             const allTags = [...campaignTags, ...leadTags];
-            const uniqueTags = [...new Set(allTags.map(t => t.trim()).filter(t => t.length > 0))].sort();
+            const tagMap = new Map<string, string>();
+            allTags.forEach(tag => {
+                const trimmedTag = tag.trim();
+                if (trimmedTag) {
+                    tagMap.set(trimmedTag.toLowerCase(), trimmedTag);
+                }
+            });
+            const uniqueTags = Array.from(tagMap.values()).sort((a, b) => a.localeCompare(b, 'pt-BR', { sensitivity: 'base' }));
             setAvailableTags(uniqueTags);
 
         } catch (e: any) {
@@ -377,13 +384,6 @@ const Campaigns = () => {
         });
     }, [campaigns, statusFilter, mediaTypeFilter, tagAlvoFilter]);
 
-    const FilterSelect = ({ value, onChange, options, placeholder }: { value: string, onChange: (val: string) => void, options: {value: string, label: string}[], placeholder: string }) => (
-        <select value={value} onChange={e => onChange(e.target.value)} className="w-full sm:w-auto px-4 py-2 bg-[#0A0A0A] border border-gray-700 rounded-lg text-[#F5F5F5] focus:outline-none focus:ring-2 focus:ring-[#D99B54] text-sm">
-            <option value="">{placeholder}</option>
-            {options.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-        </select>
-    );
-
     return (
         <>
             <div className="space-y-8">
@@ -404,9 +404,9 @@ const Campaigns = () => {
                         </div>
                     ) : (
                         <div className="flex flex-col sm:flex-row w-full sm:w-auto items-center gap-2">
-                            <FilterSelect value={statusFilter} onChange={setStatusFilter} placeholder="Filtrar por Status" options={[{value: 'Agendada', label: 'Agendada'}, {value: 'Enviada', label: 'Enviada'}, {value: 'Rascunho', label: 'Rascunho'}]} />
-                            <FilterSelect value={mediaTypeFilter} onChange={setMediaTypeFilter} placeholder="Filtrar por Mídia" options={[{value: 'text', label: 'Texto'}, {value: 'image', label: 'Imagem'}, {value: 'video', label: 'Vídeo'}]} />
-                            <FilterSelect value={tagAlvoFilter} onChange={setTagAlvoFilter} placeholder="Filtrar por Tag Alvo" options={availableTags.map(tag => ({ value: tag, label: tag }))} />
+                            <CustomSelect value={statusFilter} onChange={setStatusFilter} placeholder="Filtrar por Status" options={[{value: 'Agendada', label: 'Agendada'}, {value: 'Enviada', label: 'Enviada'}, {value: 'Rascunho', label: 'Rascunho'}]} />
+                            <CustomSelect value={mediaTypeFilter} onChange={setMediaTypeFilter} placeholder="Filtrar por Mídia" options={[{value: 'text', label: 'Texto'}, {value: 'image', label: 'Imagem'}, {value: 'video', label: 'Vídeo'}]} />
+                            <CustomSelect value={tagAlvoFilter} onChange={setTagAlvoFilter} placeholder="Filtrar por Tag Alvo" options={availableTags.map(tag => ({ value: tag, label: tag }))} />
                             <button onClick={() => setModalState('add')} className="w-full sm:w-auto flex-shrink-0 px-4 py-2 bg-[#D99B54] text-black font-bold rounded-lg hover:opacity-90 transition-opacity">
                                 Nova Campanha
                             </button>

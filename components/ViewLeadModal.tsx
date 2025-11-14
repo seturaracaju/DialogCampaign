@@ -61,7 +61,6 @@ const ViewLeadModal = ({ lead, isOpen, onClose }: { lead: Lead | null, isOpen: b
                     <DetailItem label="Telefone" value={lead.telefone} />
                     <DetailItem label="Plano de Interesse" value={lead.tag_plano_de_interesse} />
                     <DetailItem label="Origem" value={lead.origem} />
-                    <DetailItem label="Unidade de Origem" value={lead.unidade_origem} />
                     <DetailItem label="Área de Atuação" value={lead.atuacao} />
                      <DetailItem label="Data de Origem" value={lead.data_origem ? new Date(`${lead.data_origem}T00:00:00`).toLocaleDateString('pt-BR', { timeZone: 'UTC'}) : 'N/A'} />
                 </div>

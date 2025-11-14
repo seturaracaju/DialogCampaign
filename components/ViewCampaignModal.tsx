@@ -48,7 +48,7 @@ const ViewCampaignModal = ({ campaign, isOpen, onClose }: { campaign: Campaign |
             const { data, error } = await supabase
                 .from('mensagens_geradas')
                 .select('mensagem_gerada')
-                .eq('campaign_id', campaign.id)
+                .eq('campanha_id', campaign.id)
                 .order('created_at', { ascending: false })
                 .limit(1)
                 .single();

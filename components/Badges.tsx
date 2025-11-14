@@ -12,6 +12,9 @@ export const StatusBadge = ({ status }: { status: Lead['status'] }) => {
     'inactive': 'bg-red-800/50 text-red-300',
     'Novo Lead': 'bg-blue-800/50 text-blue-300',
     'Atendimento Humano': 'bg-purple-800/50 text-purple-300',
+    'Em Atendimento': 'bg-indigo-800/50 text-indigo-300',
+    'Campanha MKT': 'bg-pink-800/50 text-pink-300',
+    'App Download': 'bg-teal-800/50 text-teal-300',
   };
   const statusKey = status || 'inactive';
   const effectiveStatus = statusKey in styles ? statusKey as keyof typeof styles : 'inactive';
