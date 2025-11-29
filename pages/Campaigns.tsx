@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { Campaign } from '../types';
 import { TextIcon, ImageIcon, VideoIcon } from '../components/icons/MediaIcons';
@@ -10,7 +11,7 @@ import { ai } from '../lib/gemini';
 import { useSync } from '../App';
 import Modal from '../components/Modal';
 import DeleteConfirmModal from '../components/DeleteConfirmModal';
-import { InputField, TextAreaField, DatalistInputField, CustomSelect } from '../components/FormControls';
+import { InputField, TextAreaField, DatalistInputField, CustomSelect, SelectField } from '../components/FormControls';
 import ViewCampaignModal from '../components/ViewCampaignModal';
 
 
@@ -231,6 +232,16 @@ const AddEditCampaignModal = ({ campaign, isOpen, onClose, onSave, availableTags
                     <InputField label="Nome da Campanha" value={formData.nome_campanha || ''} onChange={val => handleChange('nome_campanha', val)} />
                     <InputField label="Data de Disparo" type="date" value={formatDateForInput(formData.data_disparo)} onChange={val => handleChange('data_disparo', val)} />
                     <DatalistInputField label="Tag Alvo" value={formData.tag_alvo || ''} onChange={val => handleChange('tag_alvo', val)} options={availableTags} helpText="Selecione uma tag existente ou digite uma nova." />
+                    <SelectField 
+                        label="Status" 
+                        value={formData.status || 'Rascunho'} 
+                        onChange={val => handleChange('status', val as Campaign['status'])} 
+                        options={[
+                            { value: 'Rascunho', label: 'Rascunho' },
+                            { value: 'Agendada', label: 'Agendada' },
+                            { value: 'Enviada', label: 'Enviada (Disparar)' }
+                        ]} 
+                    />
                     <TextAreaField label="Mensagem / Legenda" value={formData.mensagem || ''} onChange={val => handleChange('mensagem', val)} rows={4} onGenerate={() => setAIOpen(true)} />
                     <InputField label="URL da Mídia (Opcional)" value={formData.media_url || ''} onChange={val => handleChange('media_url', val)} helpText="Para campanhas de imagem ou vídeo." />
                 </div>
@@ -322,13 +333,74 @@ const Campaigns = () => {
         const isEditing = 'id' in campaignData;
         const { id, ...updateData } = campaignData;
         
-        const query = isEditing
-            ? supabase.from('campanhas').update(updateData).eq('id', id)
-            : supabase.from('campanhas').insert([updateData]);
+        let campaignId = id;
 
-        const { error } = await query;
-        if (error) { alert(`Erro ao salvar campanha: ${error.message}`); } 
-        else { setModalState(null); }
+        // 1. Save or Update Campaign
+        const query = isEditing
+            ? supabase.from('campanhas').update(updateData).eq('id', id).select()
+            : supabase.from('campanhas').insert([updateData]).select();
+
+        const { data, error } = await query;
+        if (error) { 
+            alert(`Erro ao salvar campanha: ${error.message}`); 
+            return;
+        } else {
+            if (data && data[0]) {
+                campaignId = data[0].id;
+            }
+            setModalState(null);
+        }
+
+        // 2. Logic to Generate History if Status is "Enviada"
+        if (updateData.status === 'Enviada' && campaignId && updateData.tag_alvo) {
+            try {
+                // Check if history already exists to prevent duplication
+                const { count } = await supabase
+                    .from('historico_envios')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('campanha_id', campaignId);
+
+                if (count === 0) {
+                    // Fetch all leads with the target tag
+                    const { data: leads, error: leadsError } = await supabase
+                        .from('leads')
+                        .select('id')
+                        .eq('tag_plano_de_interesse', updateData.tag_alvo);
+
+                    if (leadsError) throw leadsError;
+
+                    if (leads && leads.length > 0) {
+                        const historyRecords = leads.map(lead => ({
+                            lead_id: lead.id,
+                            campanha_id: campaignId,
+                            status: 'Enviado',
+                            canal: 'WhatsApp', // Defaulting to WhatsApp for now
+                            created_at: new Date().toISOString()
+                        }));
+
+                        const { error: historyError } = await supabase
+                            .from('historico_envios')
+                            .insert(historyRecords);
+
+                         if (historyError) {
+                             if (historyError.code === '42P01' || historyError.code === 'PGRST205') {
+                                 alert("Erro de Configuração do Banco de Dados:\n\nO Supabase ainda não reconheceu a tabela 'historico_envios'.\n\nPor favor, vá ao SQL Editor do Supabase e execute:\nNOTIFY pgrst, 'reload config';");
+                                 // Stop here to avoid throwing generic error
+                                 return;
+                             }
+                             throw historyError;
+                        }
+                        
+                        alert(`Campanha enviada e registrada no histórico de ${leads.length} leads!`);
+                    } else {
+                        alert("Campanha salva como Enviada, mas nenhum lead foi encontrado com a Tag Alvo especificada.");
+                    }
+                }
+            } catch (err: any) {
+                console.error("Erro ao gerar histórico de envios:", err);
+                alert(`Campanha salva, mas houve um erro ao gerar o histórico: ${err.message || 'Erro desconhecido'}`);
+            }
+        }
     };
 
     const handleDeleteCampaign = async () => {

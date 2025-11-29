@@ -34,3 +34,13 @@ export interface Campaign {
     total_enviados?: number;
     data_conclusao?: string;
 }
+
+export interface CampaignHistory {
+    id: number;
+    created_at: string;
+    status: string;
+    canal: string;
+    lead_id: number;
+    campanha_id: number;
+    campanhas?: Campaign; // Joined data
+}
