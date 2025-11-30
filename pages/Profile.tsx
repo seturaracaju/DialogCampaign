@@ -1,8 +1,8 @@
 
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth, useSync } from '../App';
 import RefreshIcon from '../components/icons/RefreshIcon';
+import { InputField } from '../components/FormControls';
 
 
 // Fix: Made children prop optional to resolve incorrect TypeScript errors.
@@ -32,6 +32,25 @@ const Profile = () => {
     const { triggerSync } = useSync();
     const [isSyncing, setIsSyncing] = useState(false);
     const [syncSuccess, setSyncSuccess] = useState(false);
+    
+    // Z-API Config State (Using LocalStorage for MVP simplicity)
+    const [zApiInstance, setZApiInstance] = useState('');
+    const [zApiToken, setZApiToken] = useState('');
+    const [configSaved, setConfigSaved] = useState(false);
+
+    useEffect(() => {
+        const storedInstance = localStorage.getItem('dialog_zapi_instance');
+        const storedToken = localStorage.getItem('dialog_zapi_token');
+        if (storedInstance) setZApiInstance(storedInstance);
+        if (storedToken) setZApiToken(storedToken);
+    }, []);
+
+    const handleSaveConfig = () => {
+        localStorage.setItem('dialog_zapi_instance', zApiInstance);
+        localStorage.setItem('dialog_zapi_token', zApiToken);
+        setConfigSaved(true);
+        setTimeout(() => setConfigSaved(false), 3000);
+    };
 
     const handleSync = () => {
         setIsSyncing(true);
@@ -58,6 +77,21 @@ const Profile = () => {
             <InfoRow label="Nome Completo" value={user?.name || 'N/A'} />
             <InfoRow label="Endereço de Email" value={user?.email || 'N/A'} />
         </div>
+      </ProfileCard>
+      
+      <ProfileCard>
+          <SectionTitle>Configuração Z-API (WhatsApp)</SectionTitle>
+          <div className="space-y-4">
+              <p className="text-sm text-gray-400">Insira suas credenciais da Z-API para habilitar o envio real de mensagens.</p>
+              <InputField label="Instance ID" value={zApiInstance} onChange={setZApiInstance} placeholder="Ex: 3B2D..." />
+              <InputField label="Token" value={zApiToken} onChange={setZApiToken} type="password" placeholder="Seu token de segurança" />
+              <button 
+                  onClick={handleSaveConfig}
+                  className="px-4 py-2 bg-[#D99B54] text-black font-bold rounded-lg hover:opacity-90 transition-opacity"
+              >
+                  {configSaved ? 'Configurações Salvas!' : 'Salvar Configuração'}
+              </button>
+          </div>
       </ProfileCard>
       
       <ProfileCard>

@@ -7,13 +7,15 @@ import Campaigns from './pages/Campaigns';
 import Leads from './pages/Leads';
 import Analytics from './pages/Analytics';
 import Profile from './pages/Profile';
+import Templates from './pages/Templates';
+import Inbox from './pages/Inbox';
 import { User } from './types';
 import Footer from './components/Footer';
 import { supabase } from './lib/supabaseClient';
 import { Session } from '@supabase/supabase-js';
 
 
-type Page = 'Dashboard' | 'Campanhas' | 'Leads' | 'Analytics' | 'Profile';
+type Page = 'Dashboard' | 'Campanhas' | 'Leads' | 'Analytics' | 'Profile' | 'Templates' | 'Inbox';
 
 // --- Auth Context ---
 interface AuthContextType {
@@ -171,6 +173,10 @@ const Main = () => {
         return <Analytics />;
       case 'Profile':
           return <Profile />;
+      case 'Templates':
+          return <Templates />;
+      case 'Inbox':
+          return <Inbox />;
       default:
         return <Dashboard setCurrentPage={setCurrentPage} />;
     }

@@ -21,6 +21,16 @@ export interface Lead {
   data_origem: string | null;
 }
 
+export interface Message {
+    id: number;
+    created_at: string;
+    lead_id: number;
+    conteudo: string;
+    tipo: 'text' | 'image' | 'audio';
+    direcao: 'inbound' | 'outbound'; // inbound = cliente mandou, outbound = empresa mandou
+    status?: 'sent' | 'delivered' | 'read' | 'failed';
+}
+
 export interface Campaign {
     id: number;
     created_at?: string;
@@ -43,4 +53,17 @@ export interface CampaignHistory {
     lead_id: number;
     campanha_id: number;
     campanhas?: Campaign; // Joined data
+}
+
+export interface Template {
+    id: number;
+    created_at?: string;
+    titulo: string;
+    conteudo: string;
+    categoria: string;
+}
+
+export interface SystemConfig {
+    z_api_instance_id: string;
+    z_api_token: string;
 }

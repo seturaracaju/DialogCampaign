@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useAuth } from '../App';
 import DashboardIcon from './icons/DashboardIcon';
@@ -6,9 +7,11 @@ import LeadsIcon from './icons/LeadsIcon';
 import AnalyticsIcon from './icons/AnalyticsIcon';
 import ProfileIcon from './icons/ProfileIcon';
 import LogoutIcon from './icons/LogoutIcon';
+import TemplatesIcon from './icons/TemplatesIcon';
+import InboxIcon from './icons/InboxIcon';
 
 
-type Page = 'Dashboard' | 'Campanhas' | 'Leads' | 'Analytics' | 'Profile';
+type Page = 'Dashboard' | 'Campanhas' | 'Leads' | 'Analytics' | 'Profile' | 'Templates' | 'Inbox';
 
 interface SidebarProps {
   currentPage: Page;
@@ -36,14 +39,16 @@ const Sidebar = ({ currentPage, setCurrentPage }: SidebarProps) => {
   const { logout } = useAuth();
   const navItems: { id: Page; label: string; icon: React.ReactNode }[] = [
     { id: 'Dashboard', label: 'Dashboard', icon: <DashboardIcon className="w-5 h-5" /> },
+    { id: 'Inbox', label: 'Inbox (Chat)', icon: <InboxIcon className="w-5 h-5" /> },
     { id: 'Leads', label: 'Leads', icon: <LeadsIcon className="w-5 h-5" /> },
     { id: 'Campanhas', label: 'Campanhas', icon: <CampaignIcon className="w-5 h-5" /> },
+    { id: 'Templates', label: 'Templates', icon: <TemplatesIcon className="w-5 h-5" /> },
     { id: 'Analytics', label: 'Analytics', icon: <AnalyticsIcon className="w-5 h-5" /> },
     { id: 'Profile', label: 'Perfil', icon: <ProfileIcon className="w-5 h-5" /> },
   ];
 
   return (
-    <aside className="w-64 bg-[#191919] p-4 pb-12 flex-shrink-0 flex flex-col justify-between">
+    <aside className="w-64 bg-[#191919] p-4 pb-12 flex-shrink-0 flex flex-col justify-between hidden md:flex">
       <div>
         <div className="flex items-center justify-start text-2xl font-bold text-[#F5F5F5] mb-4">
           <img src="https://pub-872633efa2d545638be12ea86363c2ca.r2.dev/WhatsApp%20Image%202025-11-02%20at%2022.39.57-Photoroom.png" alt="Dialog Logo" className="h-32 w-32" />

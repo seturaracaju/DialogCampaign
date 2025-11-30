@@ -192,8 +192,15 @@ const AddEditCampaignModal = ({ campaign, isOpen, onClose, onSave, availableTags
     const [isAIOpen, setAIOpen] = useState(false);
 
     useEffect(() => {
-        setFormData(isOpen ? (campaign || { status: 'Rascunho', media_type: 'text' }) : null);
-    }, [isOpen, campaign]);
+        if (isOpen) {
+            // Only update formData when the modal opens.
+            // We consciously ignore updates to the 'campaign' prop while the modal is open 
+            // to prevent overwriting user input if the parent component re-renders.
+            setFormData(campaign || { status: 'Rascunho', media_type: 'text' });
+        } else {
+            setFormData(null);
+        }
+    }, [isOpen]);
 
     if (!formData) return null;
 
@@ -217,12 +224,11 @@ const AddEditCampaignModal = ({ campaign, isOpen, onClose, onSave, availableTags
         handleChange('mensagem', content);
     };
     
+    // Simplificando a formatação da data para evitar conflitos de fuso horário e problemas de digitação
     const formatDateForInput = (dateString: string | undefined) => {
         if (!dateString) return '';
-        const date = new Date(dateString);
-        const tzOffset = date.getTimezoneOffset() * 60000;
-        const localDate = new Date(date.getTime() - tzOffset);
-        return localDate.toISOString().split('T')[0];
+        // Pega apenas a parte da data YYYY-MM-DD, ignorando tempo e timezone
+        return dateString.split('T')[0];
     };
 
     return (
@@ -328,6 +334,53 @@ const Campaigns = () => {
         return () => { supabase.removeChannel(channel); };
     }, [fetchCampaignsAndTags, syncTrigger]);
 
+    // --- Z-API INTEGRATION LOGIC ---
+    const sendCampaignViaZAPI = async (campaign: Partial<Campaign>, leads: { id: number, telefone: string | null }[]) => {
+        const instance = localStorage.getItem('dialog_zapi_instance');
+        const token = localStorage.getItem('dialog_zapi_token');
+        
+        if (!instance || !token) {
+            alert("Configuração Z-API não encontrada. Salve o ID e Token no Perfil para enviar mensagens reais.");
+            return;
+        }
+
+        const validLeads = leads.filter(l => l.telefone);
+        let successCount = 0;
+        let failCount = 0;
+
+        for (const lead of validLeads) {
+            if (!lead.telefone) continue;
+            
+            // Format Phone (Simple cleaning, assumes BR format 55+DDD+Number)
+            let phone = lead.telefone.replace(/\D/g, '');
+            if (phone.length < 10) continue; 
+            if (phone.length <= 11) phone = '55' + phone; // Add country code if missing
+
+            try {
+                // Determine endpoint based on media_type
+                const endpoint = campaign.media_type === 'text' 
+                    ? `https://api.z-api.io/instances/${instance}/token/${token}/send-text`
+                    : `https://api.z-api.io/instances/${instance}/token/${token}/send-image`; // Simplify to image for now
+
+                const body = campaign.media_type === 'text' 
+                    ? { phone, message: campaign.mensagem }
+                    : { phone, image: campaign.media_url, caption: campaign.mensagem };
+
+                await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                successCount++;
+            } catch (err) {
+                console.error(`Erro ao enviar para ${phone}`, err);
+                failCount++;
+            }
+        }
+        
+        return { successCount, failCount };
+    };
+
     const handleSaveCampaign = async (campaignData: Partial<Campaign>) => {
         if (!supabase) return;
         const isEditing = 'id' in campaignData;
@@ -351,30 +404,41 @@ const Campaigns = () => {
             setModalState(null);
         }
 
-        // 2. Logic to Generate History if Status is "Enviada"
+        // 2. Logic for "Enviada" Status (History + Z-API)
         if (updateData.status === 'Enviada' && campaignId && updateData.tag_alvo) {
             try {
-                // Check if history already exists to prevent duplication
-                const { count } = await supabase
-                    .from('historico_envios')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('campanha_id', campaignId);
+                // Fetch all leads with the target tag
+                const { data: leads, error: leadsError } = await supabase
+                    .from('leads')
+                    .select('id, telefone')
+                    .eq('tag_plano_de_interesse', updateData.tag_alvo);
 
-                if (count === 0) {
-                    // Fetch all leads with the target tag
-                    const { data: leads, error: leadsError } = await supabase
-                        .from('leads')
-                        .select('id')
-                        .eq('tag_plano_de_interesse', updateData.tag_alvo);
+                if (leadsError) throw leadsError;
 
-                    if (leadsError) throw leadsError;
+                if (leads && leads.length > 0) {
+                    // A. Trigger Z-API Sending (Non-blocking alert, but we await execution)
+                    const confirmSend = window.confirm(`Deseja disparar esta mensagem via WhatsApp para ${leads.length} leads agora? (Requer configuração Z-API)`);
+                    
+                    if (confirmSend) {
+                        alert("Iniciando disparos em segundo plano. Aguarde...");
+                        const result = await sendCampaignViaZAPI(campaignData, leads);
+                        if (result) {
+                            alert(`Disparos finalizados!\nSucesso: ${result.successCount}\nFalhas: ${result.failCount}`);
+                        }
+                    }
 
-                    if (leads && leads.length > 0) {
+                    // B. Generate History Records (Only if not already generated)
+                     const { count } = await supabase
+                        .from('historico_envios')
+                        .select('*', { count: 'exact', head: true })
+                        .eq('campanha_id', campaignId);
+
+                     if (count === 0) {
                         const historyRecords = leads.map(lead => ({
                             lead_id: lead.id,
                             campanha_id: campaignId,
                             status: 'Enviado',
-                            canal: 'WhatsApp', // Defaulting to WhatsApp for now
+                            canal: 'WhatsApp',
                             created_at: new Date().toISOString()
                         }));
 
@@ -385,20 +449,18 @@ const Campaigns = () => {
                          if (historyError) {
                              if (historyError.code === '42P01' || historyError.code === 'PGRST205') {
                                  alert("Erro de Configuração do Banco de Dados:\n\nO Supabase ainda não reconheceu a tabela 'historico_envios'.\n\nPor favor, vá ao SQL Editor do Supabase e execute:\nNOTIFY pgrst, 'reload config';");
-                                 // Stop here to avoid throwing generic error
                                  return;
                              }
                              throw historyError;
                         }
-                        
-                        alert(`Campanha enviada e registrada no histórico de ${leads.length} leads!`);
-                    } else {
-                        alert("Campanha salva como Enviada, mas nenhum lead foi encontrado com a Tag Alvo especificada.");
+                        console.log("Histórico registrado com sucesso.");
                     }
+                } else {
+                    alert("Campanha salva como Enviada, mas nenhum lead foi encontrado com a Tag Alvo especificada.");
                 }
             } catch (err: any) {
-                console.error("Erro ao gerar histórico de envios:", err);
-                alert(`Campanha salva, mas houve um erro ao gerar o histórico: ${err.message || 'Erro desconhecido'}`);
+                console.error("Erro ao processar envio:", err);
+                alert(`Erro no processo de envio: ${err.message}`);
             }
         }
     };

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Lead } from '../types';
 import { supabase } from '../lib/supabaseClient';
@@ -13,6 +14,7 @@ import { InputField, SelectField, DatalistInputField, CustomSelect } from '../co
 import ViewLeadModal from '../components/ViewLeadModal';
 import { StatusBadge, TagBadge } from '../components/Badges';
 import DAIActionsModal from '../components/DAIActionsModal';
+import AutomationModal from '../components/AutomationModal';
 
 // --- Helper Components ---
 
@@ -173,9 +175,119 @@ const BulkEditModal = ({ isOpen, onClose, onSave, availableTags }: { isOpen: boo
 };
 
 
+// --- Kanban Board Component with Drag and Drop ---
+const KanbanBoard = ({ leads, onLeadClick, onStatusChange }: { leads: Lead[], onLeadClick: (l: Lead) => void, onStatusChange: (l: Lead, newStatus: Lead['status']) => void }) => {
+    const columns: Lead['status'][] = ['Novo Lead', 'Em Atendimento', 'Atendimento Humano', 'Campanha MKT', 'App Download'];
+    const [draggedLead, setDraggedLead] = useState<Lead | null>(null);
+    const [dragOverColumn, setDragOverColumn] = useState<Lead['status'] | null>(null);
+
+    const handleDragStart = (e: React.DragEvent, lead: Lead) => {
+        setDraggedLead(lead);
+        e.dataTransfer.effectAllowed = 'move';
+        // Add a class to styling if needed, or set ghost image
+    };
+
+    const handleDragOver = (e: React.DragEvent, status: Lead['status']) => {
+        e.preventDefault(); // Necessary to allow dropping
+        setDragOverColumn(status);
+    };
+
+    const handleDragLeave = () => {
+        setDragOverColumn(null);
+    };
+
+    const handleDrop = (e: React.DragEvent, targetStatus: Lead['status']) => {
+        e.preventDefault();
+        setDragOverColumn(null);
+        
+        if (draggedLead && draggedLead.status !== targetStatus) {
+            onStatusChange(draggedLead, targetStatus);
+        }
+        setDraggedLead(null);
+    };
+
+    return (
+        <div className="flex overflow-x-auto gap-4 pb-4 select-none">
+            {columns.map(status => (
+                <div 
+                    key={status} 
+                    className={`min-w-[280px] w-72 rounded-xl flex flex-col h-[calc(100vh-250px)] transition-colors duration-200 ${
+                        dragOverColumn === status ? 'bg-[#2a2a2a] ring-2 ring-[#D99B54] ring-opacity-50' : 'bg-[#191919]'
+                    }`}
+                    onDragOver={(e) => handleDragOver(e, status)}
+                    onDragLeave={handleDragLeave}
+                    onDrop={(e) => handleDrop(e, status)}
+                >
+                    <div className="p-4 border-b border-gray-700 flex justify-between items-center sticky top-0 rounded-t-xl z-10 bg-inherit">
+                        <h3 className="font-semibold text-white">{status}</h3>
+                        <span className="bg-[#2a2a2a] text-xs px-2 py-1 rounded-full text-gray-400">
+                            {leads.filter(l => l.status === status).length}
+                        </span>
+                    </div>
+                    <div className="p-3 space-y-3 overflow-y-auto flex-1 custom-scrollbar">
+                        {leads.filter(l => l.status === status).map(lead => (
+                            <div 
+                                key={lead.id} 
+                                draggable
+                                onDragStart={(e) => handleDragStart(e, lead)}
+                                onClick={() => onLeadClick(lead)}
+                                className={`bg-[#2a2a2a] p-3 rounded-lg border border-transparent hover:border-[#D99B54] cursor-grab active:cursor-grabbing transition-all shadow-sm group relative ${
+                                    draggedLead?.id === lead.id ? 'opacity-50 border-dashed border-gray-500' : ''
+                                }`}
+                            >
+                                <div className="flex justify-between items-start mb-2">
+                                    <span className="font-medium text-white truncate pr-2">{lead.nome || 'Sem Nome'}</span>
+                                    {lead.tag_plano_de_interesse && (
+                                        <span className="text-[10px] bg-[#0A0A0A] text-gray-400 px-1.5 py-0.5 rounded truncate max-w-[80px]">
+                                            {lead.tag_plano_de_interesse}
+                                        </span>
+                                    )}
+                                </div>
+                                <div className="text-xs text-gray-400 mb-2">
+                                    {lead.telefone || 'Sem telefone'}
+                                </div>
+                                <div className="flex justify-between items-center text-[10px] text-gray-500">
+                                    <span>{new Date(lead.data_origem || '').toLocaleDateString('pt-BR')}</span>
+                                    <span>{lead.origem || 'Origem?'}</span>
+                                </div>
+                                
+                                {/* Keep arrows for accessibility/mobile or as alternative */}
+                                <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                                    {status !== 'Novo Lead' && (
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); onStatusChange(lead, 'Novo Lead'); }}
+                                            className="bg-gray-700 hover:bg-gray-600 text-white p-1 rounded" title="Mover para Novo Lead"
+                                        >
+                                            ←
+                                        </button>
+                                    )}
+                                    {status !== 'Atendimento Humano' && (
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); onStatusChange(lead, 'Atendimento Humano'); }}
+                                            className="bg-[#D99B54] hover:bg-[#c78f4a] text-black p-1 rounded" title="Mover para Atendimento Humano"
+                                        >
+                                            →
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                        {leads.filter(l => l.status === status).length === 0 && (
+                            <div className="text-center py-4 text-gray-600 text-sm border-2 border-dashed border-gray-800 rounded-lg pointer-events-none">
+                                Arraste leads aqui
+                            </div>
+                        )}
+                    </div>
+                </div>
+            ))}
+        </div>
+    )
+}
+
 // --- Main View Component ---
 
 const ViewLeads = () => {
+  const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
   const [searchTerm, setSearchTerm] = useState('');
   const [leads, setLeads] = useState<Lead[]>([]);
   const [availableTags, setAvailableTags] = useState<string[]>([]);
@@ -203,6 +315,11 @@ const ViewLeads = () => {
   
   const [currentPage, setCurrentPage] = useState(1);
   const LEADS_PER_PAGE = 100;
+
+  // Automation Modal State
+  const [isAutomationOpen, setIsAutomationOpen] = useState(false);
+  const [automationTargetLead, setAutomationTargetLead] = useState<Lead | null>(null);
+  const [automationNewStatus, setAutomationNewStatus] = useState<string>('');
 
   const fetchLeadsAndTags = useCallback(async () => {
     setLoading(true);
@@ -326,6 +443,68 @@ const ViewLeads = () => {
     if (error) { alert(`Erro ao salvar lead: ${error.message}`); } 
     else { setModalState(null); }
   };
+
+  // --- Automation Logic ---
+  const handleKanbanStatusChange = async (lead: Lead, newStatus: Lead['status']) => {
+      // Open Automation Modal to confirm sending a message
+      setAutomationTargetLead(lead);
+      setAutomationNewStatus(newStatus);
+      setIsAutomationOpen(true);
+  };
+
+  const executeAutomation = async (message: string) => {
+      if (!automationTargetLead || !supabase) return;
+
+      const instance = localStorage.getItem('dialog_zapi_instance');
+      const token = localStorage.getItem('dialog_zapi_token');
+
+      // 1. Send Message if configured
+      if (instance && token && message.trim()) {
+           const phone = automationTargetLead.telefone?.replace(/\D/g, '');
+           if (phone) {
+               try {
+                   const finalPhone = phone.length <= 11 ? '55' + phone : phone;
+                   await fetch(`https://api.z-api.io/instances/${instance}/token/${token}/send-text`, {
+                       method: 'POST',
+                       headers: { 'Content-Type': 'application/json' },
+                       body: JSON.stringify({
+                           phone: finalPhone,
+                           message: message
+                       })
+                   });
+                   
+                   // Log message in DB
+                   await supabase.from('mensagens').insert([{
+                       lead_id: automationTargetLead.id,
+                       conteudo: message,
+                       tipo: 'text',
+                       direcao: 'outbound',
+                       created_at: new Date().toISOString()
+                   }]);
+
+               } catch (e) {
+                   console.error("Failed to send automation message:", e);
+                   alert("Falha ao enviar mensagem automática, mas o status será atualizado.");
+               }
+           }
+      }
+
+      // 2. Update Status
+      await handleSaveLead({ id: automationTargetLead.id, status: automationNewStatus as Lead['status'] });
+      
+      // Close Modal
+      setIsAutomationOpen(false);
+      setAutomationTargetLead(null);
+  };
+
+  const skipAutomation = async () => {
+      if (!automationTargetLead) return;
+      // Just update status, no message
+      await handleSaveLead({ id: automationTargetLead.id, status: automationNewStatus as Lead['status'] });
+      setIsAutomationOpen(false);
+      setAutomationTargetLead(null);
+  };
+
 
   const handleDeleteLead = async () => {
     if (!supabase || !selectedLead) return;
@@ -454,88 +633,105 @@ const ViewLeads = () => {
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="w-full sm:max-w-xs px-4 py-2 bg-[#0A0A0A] border border-gray-700 rounded-lg text-[#F5F5F5] focus:outline-none focus:ring-2 focus:ring-[#D99B54]"
                   />
-                  <CustomSelect value={statusFilter} onChange={setStatusFilter} options={filterOptions.statuses} placeholder="Filtrar por Status" />
-                  <CustomSelect value={tagFilter} onChange={setTagFilter} options={filterOptions.tags.map(tag => ({ value: tag, label: tag }))} placeholder="Filtrar por Tag" />
-                  <CustomSelect value={originFilter} onChange={setOriginFilter} options={filterOptions.origins.map(o => ({ value: o, label: o }))} placeholder="Filtrar por Origem" />
-                  <CustomSelect value={atuacaoFilter} onChange={setAtuacaoFilter} options={filterOptions.atuacoes.map(a => ({ value: a, label: a }))} placeholder="Filtrar por Área" />
-                  <CustomSelect value={monthFilter} onChange={setMonthFilter} options={filterOptions.months.map(m => ({ value: m, label: m }))} placeholder="Filtrar por Mês" />
+                  {viewMode === 'list' && (
+                    <>
+                        <CustomSelect value={statusFilter} onChange={setStatusFilter} options={filterOptions.statuses} placeholder="Filtrar por Status" />
+                        <CustomSelect value={tagFilter} onChange={setTagFilter} options={filterOptions.tags.map(tag => ({ value: tag, label: tag }))} placeholder="Filtrar por Tag" />
+                        <CustomSelect value={originFilter} onChange={setOriginFilter} options={filterOptions.origins.map(o => ({ value: o, label: o }))} placeholder="Filtrar por Origem" />
+                        <CustomSelect value={atuacaoFilter} onChange={setAtuacaoFilter} options={filterOptions.atuacoes.map(a => ({ value: a, label: a }))} placeholder="Filtrar por Área" />
+                        <CustomSelect value={monthFilter} onChange={setMonthFilter} options={filterOptions.months.map(m => ({ value: m, label: m }))} placeholder="Filtrar por Mês" />
+                    </>
+                  )}
               </div>
-               <button onClick={() => setModalState('add')} className="w-full sm:w-auto flex-shrink-0 px-4 py-2 bg-[#D99B54] text-black font-bold rounded-lg hover:opacity-90 transition-opacity">
-                  Adicionar Lead
-              </button>
+              <div className="flex gap-2 w-full sm:w-auto">
+                   <div className="bg-[#0A0A0A] p-1 rounded-lg flex items-center">
+                        <button onClick={() => setViewMode('list')} className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${viewMode === 'list' ? 'bg-[#2a2a2a] text-white' : 'text-gray-400'}`}>Lista</button>
+                        <button onClick={() => setViewMode('kanban')} className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${viewMode === 'kanban' ? 'bg-[#2a2a2a] text-white' : 'text-gray-400'}`}>Kanban</button>
+                   </div>
+                   <button onClick={() => setModalState('add')} className="w-full sm:w-auto flex-shrink-0 px-4 py-2 bg-[#D99B54] text-black font-bold rounded-lg hover:opacity-90 transition-opacity">
+                      Adicionar Lead
+                  </button>
+              </div>
           </div>
         )}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left whitespace-nowrap">
-            <thead className="border-b border-gray-700 text-[#A1A1AA] uppercase text-xs tracking-wider">
-              <tr>
-                <th className="p-3 w-4">
-                    <input
-                        type="checkbox"
-                        className="form-checkbox h-4 w-4 bg-[#0A0A0A] border-gray-600 text-[#D99B54] focus:ring-offset-0 focus:ring-2 focus:ring-[#D99B54] rounded"
-                        checked={isAllSelected}
-                        onChange={handleSelectAll}
-                        // Fix: The ref callback should not return a value. Wrap the logic in braces to fix the TypeScript error.
-                        ref={el => { if (el) { el.indeterminate = selectedLeadIds.size > 0 && !isAllSelected; } }}
-                    />
-                </th>
-                <SortableHeader title="Nome" columnId="nome" />
-                <th className="p-3">Plano de Interesse</th>
-                <th className="p-3">Telefone</th>
-                <SortableHeader title="Data de Origem" columnId="data_origem" />
-                <th className="p-3">Status</th>
-                <th className="p-3">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="text-[#F5F5F5] text-sm">
-              {paginatedLeads.map(lead => (
-                <tr key={lead.id} className={`border-b border-gray-800 transition-colors ${selectedLeadIds.has(lead.id) ? 'bg-[#D99B54]/10' : 'hover:bg-gray-800/50'}`}>
-                  <td className="p-3 w-4">
-                      <input
-                          type="checkbox"
-                          className="form-checkbox h-4 w-4 bg-[#0A0A0A] border-gray-600 text-[#D99B54] focus:ring-offset-0 focus:ring-2 focus:ring-[#D99B54] rounded"
-                          checked={selectedLeadIds.has(lead.id)}
-                          onChange={() => handleSelect(lead.id)}
-                      />
-                  </td>
-                  <td className="p-3 font-medium cursor-pointer" onClick={() => { setSelectedLead(lead); setModalState('view'); }}>{lead.nome || 'N/A'}</td>
-                  <td className="p-3">{lead.tag_plano_de_interesse ? <TagBadge>{lead.tag_plano_de_interesse}</TagBadge> : <EmptyCell/>}</td>
-                  <td className="p-3 text-[#A1A1AA]">{lead.telefone || <EmptyCell/>}</td>
-                   <td className="p-3 text-[#A1A1AA]">{lead.data_origem ? new Date(`${lead.data_origem}T00:00:00`).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : <EmptyCell />}</td>
-                  <td className="p-3"><StatusBadge status={lead.status} /></td>
-                  <td className="p-3">
-                      <div className="flex items-center gap-4 text-[#A1A1AA]">
-                          <button onClick={(e) => { e.stopPropagation(); setSelectedLead(lead); setModalState('view'); }} className="hover:text-[#D99B54] transition-colors"><EyeIcon className="w-5 h-5"/></button>
-                          <button onClick={(e) => { e.stopPropagation(); setSelectedLead(lead); setModalState('edit'); }} className="hover:text-[#D99B54] transition-colors"><PencilIcon className="w-5 h-5"/></button>
-                          <button onClick={(e) => { e.stopPropagation(); setSelectedLead(lead); setModalState('delete'); }} className="hover:text-red-500 transition-colors"><TrashIcon className="w-5 h-5"/></button>
-                      </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        
-        {pageCount > 1 && (
-            <div className="flex justify-between items-center mt-6 text-sm">
-                <button 
-                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                    className="px-4 py-2 bg-[#2a2a2a] rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-700"
-                >
-                    Anterior
-                </button>
-                <span className="text-[#A1A1AA]">
-                    Página {currentPage} de {pageCount} ({totalFilteredLeads} leads)
-                </span>
-                <button 
-                    onClick={() => setCurrentPage(p => Math.min(pageCount, p + 1))}
-                    disabled={currentPage === pageCount}
-                    className="px-4 py-2 bg-[#2a2a2a] rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-700"
-                >
-                    Próxima
-                </button>
+
+        {viewMode === 'list' ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left whitespace-nowrap">
+                <thead className="border-b border-gray-700 text-[#A1A1AA] uppercase text-xs tracking-wider">
+                  <tr>
+                    <th className="p-3 w-4">
+                        <input
+                            type="checkbox"
+                            className="form-checkbox h-4 w-4 bg-[#0A0A0A] border-gray-600 text-[#D99B54] focus:ring-offset-0 focus:ring-2 focus:ring-[#D99B54] rounded"
+                            checked={isAllSelected}
+                            onChange={handleSelectAll}
+                            ref={el => { if (el) { el.indeterminate = selectedLeadIds.size > 0 && !isAllSelected; } }}
+                        />
+                    </th>
+                    <SortableHeader title="Nome" columnId="nome" />
+                    <th className="p-3">Plano de Interesse</th>
+                    <th className="p-3">Telefone</th>
+                    <SortableHeader title="Data de Origem" columnId="data_origem" />
+                    <th className="p-3">Status</th>
+                    <th className="p-3">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="text-[#F5F5F5] text-sm">
+                  {paginatedLeads.map(lead => (
+                    <tr key={lead.id} className={`border-b border-gray-800 transition-colors ${selectedLeadIds.has(lead.id) ? 'bg-[#D99B54]/10' : 'hover:bg-gray-800/50'}`}>
+                      <td className="p-3 w-4">
+                          <input
+                              type="checkbox"
+                              className="form-checkbox h-4 w-4 bg-[#0A0A0A] border-gray-600 text-[#D99B54] focus:ring-offset-0 focus:ring-2 focus:ring-[#D99B54] rounded"
+                              checked={selectedLeadIds.has(lead.id)}
+                              onChange={() => handleSelect(lead.id)}
+                          />
+                      </td>
+                      <td className="p-3 font-medium cursor-pointer" onClick={() => { setSelectedLead(lead); setModalState('view'); }}>{lead.nome || 'N/A'}</td>
+                      <td className="p-3">{lead.tag_plano_de_interesse ? <TagBadge>{lead.tag_plano_de_interesse}</TagBadge> : <EmptyCell/>}</td>
+                      <td className="p-3 text-[#A1A1AA]">{lead.telefone || <EmptyCell/>}</td>
+                       <td className="p-3 text-[#A1A1AA]">{lead.data_origem ? new Date(`${lead.data_origem}T00:00:00`).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : <EmptyCell />}</td>
+                      <td className="p-3"><StatusBadge status={lead.status} /></td>
+                      <td className="p-3">
+                          <div className="flex items-center gap-4 text-[#A1A1AA]">
+                              <button onClick={(e) => { e.stopPropagation(); setSelectedLead(lead); setModalState('view'); }} className="hover:text-[#D99B54] transition-colors"><EyeIcon className="w-5 h-5"/></button>
+                              <button onClick={(e) => { e.stopPropagation(); setSelectedLead(lead); setModalState('edit'); }} className="hover:text-[#D99B54] transition-colors"><PencilIcon className="w-5 h-5"/></button>
+                              <button onClick={(e) => { e.stopPropagation(); setSelectedLead(lead); setModalState('delete'); }} className="hover:text-red-500 transition-colors"><TrashIcon className="w-5 h-5"/></button>
+                          </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {pageCount > 1 && (
+                <div className="flex justify-between items-center mt-6 text-sm">
+                    <button 
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        className="px-4 py-2 bg-[#2a2a2a] rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-700"
+                    >
+                        Anterior
+                    </button>
+                    <span className="text-[#A1A1AA]">
+                        Página {currentPage} de {pageCount} ({totalFilteredLeads} leads)
+                    </span>
+                    <button 
+                        onClick={() => setCurrentPage(p => Math.min(pageCount, p + 1))}
+                        disabled={currentPage === pageCount}
+                        className="px-4 py-2 bg-[#2a2a2a] rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-700"
+                    >
+                        Próxima
+                    </button>
+                </div>
+            )}
             </div>
+        ) : (
+            <KanbanBoard 
+                leads={sortedAndFilteredLeads} 
+                onLeadClick={(l) => { setSelectedLead(l); setModalState('view'); }}
+                onStatusChange={handleKanbanStatusChange}
+            />
         )}
       </div>
 
@@ -563,6 +759,14 @@ const ViewLeads = () => {
         isOpen={isDAIActionsModalOpen}
         onClose={() => setIsDAIActionsModalOpen(false)}
         selectedLeads={selectedLeadsData}
+      />
+      <AutomationModal 
+        isOpen={isAutomationOpen}
+        onClose={() => setIsAutomationOpen(false)}
+        onConfirm={executeAutomation}
+        onSkip={skipAutomation}
+        lead={automationTargetLead}
+        newStatus={automationNewStatus}
       />
     </>
   );
@@ -640,7 +844,6 @@ const ImportLeads = () => {
                 if (importMode === 'new') {
                     await handleImportNew(jsonData);
                 } else {
-                    // Fix: Called the missing handleUpdateExisting function.
                     await handleUpdateExisting(jsonData);
                 }
 
@@ -657,7 +860,6 @@ const ImportLeads = () => {
         reader.readAsBinaryString(file);
     };
     
-    // Fix: Completed the truncated handleImportNew function.
     const handleImportNew = async (jsonData: any[]) => {
         if (!supabase) throw new Error("Supabase client not available.");
         
@@ -685,7 +887,6 @@ const ImportLeads = () => {
                 atuacao: row.atuacao || null,
                 status: 'Novo Lead',
                 data_origem: row.data_origem && !isNaN(new Date(row.data_origem).getTime()) ? new Date(row.data_origem).toISOString() : new Date().toISOString(),
-                // Fix: Added missing `ultima_mensagem` property to satisfy the Lead type.
                 ultima_mensagem: null,
                 mensagem: null,
                 resumo_ia: null,
@@ -709,7 +910,6 @@ const ImportLeads = () => {
         }
     };
     
-    // Fix: Added the missing handleUpdateExisting function.
     const handleUpdateExisting = async (jsonData: any[]) => {
         if (!supabase) throw new Error("Supabase client not available.");
 
